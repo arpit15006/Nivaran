@@ -104,7 +104,7 @@ export default function PhotoCapture({
   return (
     <div>
       {previewUrl ? (
-        <div className="relative overflow-hidden rounded-xl border border-slate-300">
+        <div className="relative overflow-hidden rounded-xl border border-line-strong">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={previewUrl} alt="Selected problem photo preview" className="max-h-64 w-full object-cover" />
           <div className="absolute right-2 top-2 flex gap-2">

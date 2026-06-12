@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { redis } from '../redis.js';
 import { logger } from '../logger.js';
 import { appendEvent } from '../lib/audit.js';
+import { gatherEscalationContext, decideEscalation } from '../agents/escalationAgent.js';
 import type { Status } from '@prisma/client';
 
 export const ESCALATION_QUEUE = 'nivaran-escalation';
@@ -44,67 +45,82 @@ export function getEscalationQueue(): Queue<EscalationJobData> {
  */
 export async function scheduleEscalation(complaintId: string, level: number, deadline: Date) {
   const delay = Math.max(0, deadline.getTime() - Date.now());
-  await getEscalationQueue().add(
-    'sla-check',
-    { complaintId, level },
-    // BullMQ custom job IDs may not contain ':'; use '__' as the separator.
-    { delay, jobId: `${complaintId}__${level}` },
-  );
+  // BullMQ custom job IDs may not contain ':'; use '__' as the separator.
+  const jobId = `${complaintId}__${level}`;
+  const queue = getEscalationQueue();
+
+  // A job for this (complaint, level) may already exist — the deterministic
+  // jobId is what makes scheduling idempotent. But that means a plain add() is a
+  // silent no-op when one exists, so an expedite (breach-now / reconciliation)
+  // would never fire. Instead: reschedule the pending timer if present.
+  const existing = await queue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState().catch(() => 'unknown');
+    if (state === 'delayed' || state === 'waiting' || state === 'waiting-children') {
+      await existing.changeDelay(delay);
+      logger.debug({ complaintId, level, delayMs: delay }, 'Rescheduled (expedited) escalation timer');
+      return;
+    }
+    // Completed/failed/active — clear it so we can enqueue a fresh checkpoint.
+    await existing.remove().catch(() => undefined);
+  }
+
+  await queue.add('sla-check', { complaintId, level }, { delay, jobId });
   logger.debug({ complaintId, level, delayMs: delay }, 'Scheduled escalation timer');
 }
 
 /**
- * Process one SLA checkpoint. Idempotent and guarded by complaint state:
- * a job firing twice does not double-escalate (PRD §5.3).
+ * Process one SLA checkpoint. Idempotent and guarded by complaint state
+ * (PRD §5.3). The escalation DECISION is made by the agent (perceive → reason),
+ * bounded by deterministic guardrails; the worker then ACTS on it atomically.
  */
 export async function processEscalationJob(data: EscalationJobData): Promise<void> {
   const { complaintId, level } = data;
 
-  await prisma.$transaction(async (tx) => {
-    const complaint = await tx.complaint.findUnique({ where: { id: complaintId } });
-    if (!complaint) return;
+  // 1. Read + idempotency guards (no LLM call inside a transaction).
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint) return;
+  if (TERMINAL.includes(complaint.status)) return;
+  if (complaint.escalationLevel !== level) return; // a prior run already handled this checkpoint
 
-    // Already resolved/closed → nothing to do.
-    if (TERMINAL.includes(complaint.status)) return;
+  const steps = await prisma.escalationStep.findMany({
+    where: { departmentId: complaint.departmentId ?? undefined },
+    orderBy: { level: 'asc' },
+  });
+  const maxLevel = steps.length ? steps[steps.length - 1].level : level;
 
-    // Idempotency guard: this checkpoint only acts if the complaint is still
-    // sitting at `level`. If escalationLevel already advanced past it, a prior
-    // run handled it — skip.
-    if (complaint.escalationLevel !== level) return;
-
-    // Find the next escalation step above the current level.
-    const nextStep = await tx.escalationStep.findFirst({
-      where: { departmentId: complaint.departmentId ?? undefined, level: level + 1 },
-      orderBy: { level: 'asc' },
-    });
-
-    const now = new Date();
-
-    if (!nextStep) {
-      // No higher authority — mark breached but keep it visible at the top level.
-      if (complaint.status !== 'BREACHED') {
+  // 2. Top of the chain — no higher authority. Final breach.
+  if (level >= maxLevel) {
+    await prisma.$transaction(async (tx) => {
+      const fresh = await tx.complaint.findUnique({ where: { id: complaintId } });
+      if (!fresh || TERMINAL.includes(fresh.status) || fresh.escalationLevel !== level) return;
+      if (fresh.status !== 'BREACHED') {
         await tx.complaint.update({ where: { id: complaintId }, data: { status: 'BREACHED' } });
         await appendEvent(tx, {
           complaintId,
           kind: 'BREACHED',
-          detail: { level, note: 'SLA breached; no further escalation level configured' },
+          detail: { level, note: 'SLA breached at top of escalation chain; no higher authority configured.' },
         });
       }
-      return;
-    }
+    });
+    return;
+  }
 
-    // Escalate: advance level, set status, record breach + escalation, set the
-    // next deadline using this step's own SLA.
-    const newLevel = level + 1;
-    const nextDeadline = new Date(now.getTime() + nextStep.slaHours * 3_600_000);
+  // 3. AGENT: perceive context, then decide the escalation action (outside tx).
+  const ctx = await gatherEscalationContext(complaint, steps);
+  const decision = await decideEscalation(ctx);
+  const targetStep = steps.find((s) => s.level === decision.targetLevel) ?? steps.find((s) => s.level === level + 1)!;
+  const now = new Date();
+  const nextDeadline = new Date(now.getTime() + decision.nextCheckHours * 3_600_000);
+
+  // 4. ACT atomically (re-check the guard inside the tx to stay idempotent).
+  await prisma.$transaction(async (tx) => {
+    const fresh = await tx.complaint.findUnique({ where: { id: complaintId } });
+    if (!fresh || TERMINAL.includes(fresh.status) || fresh.escalationLevel !== level) return;
 
     await tx.complaint.update({
       where: { id: complaintId },
-      data: {
-        status: 'ESCALATED',
-        escalationLevel: newLevel,
-        slaDeadline: nextDeadline,
-      },
+      data: { status: 'ESCALATED', escalationLevel: targetStep.level, slaDeadline: nextDeadline },
     });
 
     await appendEvent(tx, {
@@ -116,19 +132,37 @@ export async function processEscalationJob(data: EscalationJobData): Promise<voi
       complaintId,
       kind: 'ESCALATED',
       detail: {
-        toLevel: newLevel,
-        authority: nextStep.authority,
-        contact: nextStep.contact,
+        fromLevel: level,
+        toLevel: targetStep.level,
+        skippedLevels: decision.skippedLevels,
+        authority: targetStep.authority,
+        contact: targetStep.contact,
+        urgent: decision.urgent,
+        batch: decision.batch,
+        relatedOpenCount: ctx.relatedOpenCount,
+        priorityScore: decision.priorityScore,
+        safetySignals: ctx.safetySignals,
         nextDeadline,
+        decidedBy: decision.source, // "agent" | "fallback"
+        reasoning: decision.reasoning,
       },
     });
-
-    // Enqueue the next-level timer (outside isn't possible in tx; schedule after).
-    // We schedule here via the queue (Redis), which is fine inside the tx callback.
-    await scheduleEscalation(complaintId, newLevel, nextDeadline);
-
-    logger.info({ complaintId, toLevel: newLevel, authority: nextStep.authority }, 'Escalated complaint');
   });
+
+  // 5. Schedule the next checkpoint at the agent-chosen cadence.
+  await scheduleEscalation(complaintId, targetStep.level, nextDeadline);
+
+  logger.info(
+    {
+      complaintId,
+      fromLevel: level,
+      toLevel: targetStep.level,
+      skipped: decision.skippedLevels,
+      urgent: decision.urgent,
+      decidedBy: decision.source,
+    },
+    'Escalation agent acted',
+  );
 }
 
 /**

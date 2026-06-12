@@ -54,7 +54,7 @@ function ConfigView() {
       <AddRule depts={depts ?? []} onDone={load} />
 
       <Card className="overflow-hidden">
-        <div className="border-b border-slate-200 px-5 py-4">
+        <div className="border-b border-line px-5 py-4">
           <h2 className="font-heading text-lg font-semibold text-ink-900">Routing rules</h2>
         </div>
         {rules === null ? (
@@ -62,10 +62,10 @@ function ConfigView() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-ink-500">
+              <thead className="bg-paper-sunken text-xs uppercase tracking-wide text-ink-500">
                 <tr><th className="px-4 py-3">Category</th><th className="px-4 py-3">Jurisdiction</th><th className="px-4 py-3">Department</th><th className="px-4 py-3">SLA (h)</th><th className="px-4 py-3">Version</th><th className="px-4 py-3">Status</th></tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {rules.map((r) => (
                   <tr key={r.id} className={r.active ? '' : 'text-ink-500'}>
                     <td className="px-4 py-3 font-semibold text-ink-900">{prettyCategory(r.category)}</td>
@@ -74,7 +74,7 @@ function ConfigView() {
                     <td className="px-4 py-3">{r.slaHours}</td>
                     <td className="px-4 py-3">v{r.version}</td>
                     <td className="px-4 py-3">
-                      <span className={`badge ${r.active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-ink-500'}`}>{r.active ? 'Active' : 'Superseded'}</span>
+                      <span className={`chip ${r.active ? 'bg-green-50 text-green-700' : 'bg-paper-sunken text-ink-500'}`}>{r.active ? 'Active' : 'Superseded'}</span>
                     </td>
                   </tr>
                 ))}
@@ -85,22 +85,22 @@ function ConfigView() {
       </Card>
 
       <Card className="overflow-hidden">
-        <div className="border-b border-slate-200 px-5 py-4">
+        <div className="border-b border-line px-5 py-4">
           <h2 className="font-heading text-lg font-semibold text-ink-900">Departments & escalation chains</h2>
         </div>
         {depts === null ? (
           <div className="p-6"><Spinner /></div>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-line">
             {depts.map((d) => (
               <li key={d.id} className="px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-ink-900">{d.name}</p>
-                  <span className="badge bg-brand-50 text-brand-700">{d.jurisdiction}</span>
+                  <span className="chip bg-signal-50 text-signal-700">{d.jurisdiction}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-ink-500">
                   {d.escalation.length === 0 ? <span>No escalation steps</span> : d.escalation.map((s) => (
-                    <span key={s.level} className="rounded-lg bg-slate-100 px-2 py-1">L{s.level}: {s.authority} ({s.slaHours}h)</span>
+                    <span key={s.level} className="rounded-lg bg-paper-sunken px-2 py-1">L{s.level}: {s.authority} ({s.slaHours}h)</span>
                   ))}
                 </div>
               </li>

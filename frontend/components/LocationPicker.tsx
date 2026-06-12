@@ -47,7 +47,7 @@ export default function LocationPicker({
   onPick: (lat: number, lng: number) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-300" style={{ height: 280 }}>
+    <div className="overflow-hidden rounded-md border border-line-strong" style={{ height: 280 }}>
       <MapContainer center={value ? [value.lat, value.lng] : INDORE_CENTER} zoom={13} scrollWheelZoom className="h-full w-full">
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'

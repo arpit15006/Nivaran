@@ -120,7 +120,7 @@ function TriageCard({
             <span className="font-heading font-semibold text-ink-900">{prettyCategory(item.category)}</span>
             <SeverityBadge severity={item.severity} />
             {item.classifierConfidence !== null ? (
-              <span className="badge bg-slate-100 text-ink-700">
+              <span className="chip bg-paper-sunken text-ink-700">
                 {item.classifierSource === 'llm' ? 'AI' : 'fallback'} {Math.round(item.classifierConfidence * 100)}%
               </span>
             ) : null}
@@ -135,7 +135,7 @@ function TriageCard({
 
       {note ? <p className="mt-3 text-sm font-semibold text-green-700">{note}</p> : null}
 
-      <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-end sm:justify-between">
         <button onClick={() => route('auto')} disabled={busy !== null} className="btn-primary">
           <Wand2 className="h-4 w-4" aria-hidden /> {busy === 'auto' ? 'Re-routing…' : 'Auto re-route (run engine)'}
         </button>

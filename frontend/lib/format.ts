@@ -1,21 +1,23 @@
 import type { Status } from './types';
 
-export const STATUS_META: Record<Status, { label: string; color: string; bg: string }> = {
-  NEW: { label: 'New', color: '#475569', bg: '#F1F5F9' },
-  TRIAGE: { label: 'Human triage', color: '#475569', bg: '#F1F5F9' },
-  ROUTED: { label: 'Routed', color: '#075985', bg: '#E0F2FE' },
-  IN_PROGRESS: { label: 'In progress', color: '#6D28D9', bg: '#F3E8FF' },
-  BREACHED: { label: 'SLA breached', color: '#B91C1C', bg: '#FEE2E2' },
-  ESCALATED: { label: 'Escalated', color: '#C2410C', bg: '#FFEDD5' },
-  RESOLVED: { label: 'Resolved', color: '#15803D', bg: '#DCFCE7' },
-  CLOSED: { label: 'Closed', color: '#334155', bg: '#E2E8F0' },
+// color = foreground/dot (vivid status color, also used for map pins).
+// bg/border = chip tints. Status colors are RESERVED for status only.
+export const STATUS_META: Record<Status, { label: string; color: string; bg: string; border: string }> = {
+  NEW: { label: 'New', color: '#475569', bg: '#F0F1F4', border: '#E1E4EA' },
+  TRIAGE: { label: 'Triage', color: '#92500E', bg: '#FAF1E1', border: '#EDDDBE' },
+  ROUTED: { label: 'Routed', color: '#2F4A66', bg: '#E9F0F6', border: '#D1DFEC' },
+  IN_PROGRESS: { label: 'In progress', color: '#92400E', bg: '#FBF0DB', border: '#F0DDB6' },
+  BREACHED: { label: 'Breached', color: '#B91C1C', bg: '#FBE8E8', border: '#F2CECE' },
+  ESCALATED: { label: 'Escalated', color: '#C2410C', bg: '#FCEADC', border: '#F5D3B9' },
+  RESOLVED: { label: 'Resolved', color: '#166534', bg: '#E6F2EA', border: '#C8E2D1' },
+  CLOSED: { label: 'Closed', color: '#475569', bg: '#ECEEF1', border: '#DFE2E8' },
 };
 
-export const SEVERITY_META: Record<string, { label: string; color: string; bg: string }> = {
-  LOW: { label: 'Low', color: '#15803D', bg: '#DCFCE7' },
-  MEDIUM: { label: 'Medium', color: '#B45309', bg: '#FEF3C7' },
-  HIGH: { label: 'High', color: '#C2410C', bg: '#FFEDD5' },
-  CRITICAL: { label: 'Critical', color: '#B91C1C', bg: '#FEE2E2' },
+export const SEVERITY_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  LOW: { label: 'Low', color: '#166534', bg: '#E6F2EA', border: '#C8E2D1' },
+  MEDIUM: { label: 'Medium', color: '#92400E', bg: '#FBF0DB', border: '#F0DDB6' },
+  HIGH: { label: 'High', color: '#C2410C', bg: '#FCEADC', border: '#F5D3B9' },
+  CRITICAL: { label: 'Critical', color: '#B91C1C', bg: '#FBE8E8', border: '#F2CECE' },
 };
 
 export function prettyCategory(c: string): string {

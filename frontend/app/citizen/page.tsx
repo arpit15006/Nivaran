@@ -12,7 +12,7 @@ import type { AuditEvent, Complaint } from '@/lib/types';
 
 const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
   ssr: false,
-  loading: () => <div className="grid h-[280px] place-items-center rounded-xl border border-slate-300"><Spinner label="Loading map…" /></div>,
+  loading: () => <div className="grid h-[280px] place-items-center rounded-xl border border-line-strong"><Spinner label="Loading map…" /></div>,
 });
 
 const PhotoCapture = dynamic(() => import('@/components/PhotoCapture'), { ssr: false });
@@ -106,8 +106,9 @@ function ReportForm() {
 
   return (
     <Card className="p-5 sm:p-6">
-      <h1 className="font-heading text-xl font-semibold text-ink-900">Report a problem</h1>
-      <p className="mt-1 text-sm text-ink-500">Describe the issue in your own words. We classify and route it automatically.</p>
+      <p className="eyebrow">Citizen · New report</p>
+      <h1 className="mt-1 font-heading text-2xl font-semibold text-ink-900">Report a problem</h1>
+      <p className="mt-1 text-sm text-ink-500">Describe the issue in your own words. We classify and route it to the right department automatically.</p>
 
       <form onSubmit={onSubmit} className="mt-5 space-y-5">
         {error ? <Alert>{error}</Alert> : null}
@@ -218,7 +219,7 @@ function ComplaintRow({ complaint }: { complaint: Complaint }) {
 
   return (
     <Card className="overflow-hidden">
-      <button onClick={toggle} className="flex w-full items-start gap-3 p-4 text-left hover:bg-slate-50" aria-expanded={open}>
+      <button onClick={toggle} className="flex w-full items-start gap-3 p-4 text-left hover:bg-paper-sunken" aria-expanded={open}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-heading font-semibold text-ink-900">{prettyCategory(complaint.category)}</span>
@@ -235,8 +236,8 @@ function ComplaintRow({ complaint }: { complaint: Complaint }) {
       </button>
 
       {open ? (
-        <div className="border-t border-slate-200 bg-slate-50 p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Audit timeline</p>
+        <div className="border-t border-line bg-paper-sunken p-4">
+          <p className="eyebrow mb-2">Audit trail</p>
           {events === null ? <Spinner /> : <Timeline events={events} />}
         </div>
       ) : null}
@@ -253,7 +254,7 @@ function Timeline({ events }: { events: AuditEvent[] }) {
           <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: kindColor(e.kind) }} aria-hidden />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink-900">{kindLabel(e.kind)}</p>
-            <p className="text-xs text-ink-500">{new Date(e.createdAt).toLocaleString()}</p>
+            <p className="mono text-2xs">{new Date(e.createdAt).toLocaleString('en-GB')}</p>
             {detailLine(e) ? <p className="mt-0.5 text-xs text-ink-700">{detailLine(e)}</p> : null}
           </div>
         </li>
@@ -264,7 +265,7 @@ function Timeline({ events }: { events: AuditEvent[] }) {
 
 function kindColor(kind: string): string {
   return (
-    { CLASSIFIED: '#475569', ROUTED: '#0369A1', ESCALATED: '#EA580C', BREACHED: '#DC2626', RESOLVED: '#16A34A' } as Record<string, string>
+    { CLASSIFIED: '#475569', ROUTED: '#2F4A66', ESCALATED: '#EA580C', BREACHED: '#DC2626', RESOLVED: '#166534' } as Record<string, string>
   )[kind] ?? STATUS_META.NEW.color;
 }
 function kindLabel(kind: string): string {

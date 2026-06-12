@@ -74,10 +74,9 @@ function QueueView() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-ink-900">Department queue</h1>
-          <p className="mt-1 text-sm text-ink-500">
-            Complaints routed to your department, ordered by deadline. Resolve before the SLA breaches.
-          </p>
+          <p className="eyebrow">Operations · Department queue</p>
+          <h1 className="mt-1 font-heading text-2xl font-semibold text-ink-900">Active complaints</h1>
+          <p className="mt-1 text-sm text-ink-500">Ordered by time-to-breach. Resolve before the SLA runs out.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {user?.role !== 'OFFICIAL' && depts.length > 0 ? (
@@ -99,7 +98,7 @@ function QueueView() {
       {error ? <Alert>{error}</Alert> : null}
 
       {nearBreachCount > 0 ? (
-        <div className="flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">
+        <div className="flex items-center gap-2 rounded-md border border-status-escalated/30 bg-status-escalated/5 px-4 py-3 text-sm font-semibold text-status-escalated">
           <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
           {nearBreachCount} complaint{nearBreachCount > 1 ? 's' : ''} near or past their SLA deadline.
         </div>
@@ -114,7 +113,7 @@ function QueueView() {
           {/* Desktop table */}
           <Card className="hidden overflow-hidden md:block">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-ink-500">
+              <thead className="border-b border-line bg-paper-sunken text-xs uppercase tracking-wide text-ink-500">
                 <tr>
                   <th className="px-4 py-3">Complaint</th>
                   <th className="px-4 py-3">Severity</th>
@@ -123,7 +122,7 @@ function QueueView() {
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {items.map((i) => (
                   <tr key={i.id} className={i.overdue ? 'bg-red-50/50' : i.nearBreach ? 'bg-orange-50/40' : ''}>
                     <td className="px-4 py-3">
@@ -171,7 +170,7 @@ function QueueView() {
       )}
 
       {openId ? (
-        <ComplaintDetail complaintId={openId} canAct onClose={() => setOpenId(null)} onUpdated={load} />
+        <ComplaintDetail complaintId={openId} canAct canSimulate={user?.role === 'ADMIN'} onClose={() => setOpenId(null)} onUpdated={load} />
       ) : null}
     </div>
   );

@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   NIVARAN — "Civic Control Room" base layer
+   ========================================================================== */
+
 @layer base {
   :root {
     color-scheme: light;
@@ -12,27 +16,42 @@
   }
 
   body {
-    @apply bg-canvas text-ink font-body antialiased;
-    /* 16px minimum body text on mobile (readable-font-size). */
+    @apply bg-paper text-ink font-body antialiased;
     font-size: 16px;
     line-height: 1.6;
+    /* Faint blueprint grid — a quiet "operations surface" texture on the paper. */
+    background-image:
+      linear-gradient(rgba(11, 17, 32, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(11, 17, 32, 0.025) 1px, transparent 1px);
+    background-size: 44px 44px;
+    background-position: -1px -1px;
   }
 
   h1, h2, h3, h4 {
     @apply font-heading text-ink-900;
-    line-height: 1.2;
+    line-height: 1.15;
     letter-spacing: -0.01em;
+    font-weight: 600;
   }
 
-  /* Visible focus rings everywhere (3px) — accessibility critical. */
+  /* Numbers and system data read as data, with even widths. */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Visible, deliberate focus ring (signal accent) on everything interactive. */
   :focus-visible {
-    @apply outline-none ring-[3px] ring-brand/60 ring-offset-2 ring-offset-canvas rounded;
+    @apply outline-none ring-2 ring-signal ring-offset-2 ring-offset-paper;
+    border-radius: 4px;
   }
 
-  /* Respect reduced-motion preference. */
+  ::selection {
+    background: #1d70b8;
+    color: #fff;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
@@ -44,41 +63,99 @@
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
+  /* Cards: precise radius, hairline border, crisp shadow — never bubbly. */
   .card {
-    @apply rounded-2xl border border-slate-200 bg-white shadow-card;
+    @apply rounded-lg border border-line bg-paper-card shadow-card;
+  }
+  .card-sunken {
+    @apply rounded-lg border border-line bg-paper-sunken;
   }
 
+  /* Buttons — primary is an ink "official stamp"; nothing bounces. */
   .btn {
-    @apply inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5
-           text-sm font-semibold transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-[44px] cursor-pointer select-none items-center justify-center gap-2 rounded-md
+           px-4 py-2.5 text-sm font-semibold transition-colors duration-150
+           disabled:cursor-not-allowed disabled:opacity-55;
   }
   .btn-primary {
-    @apply btn bg-brand text-white hover:bg-brand-700;
+    @apply btn bg-ink-900 text-paper hover:bg-ink-800;
+  }
+  .btn-signal {
+    @apply btn bg-signal text-white hover:bg-signal-700;
   }
   .btn-secondary {
-    @apply btn border border-slate-300 bg-white text-ink-900 hover:bg-slate-50;
+    @apply btn border border-line-strong bg-paper-card text-ink-900 hover:bg-paper-sunken;
   }
   .btn-ghost {
-    @apply btn text-ink-700 hover:bg-slate-100;
+    @apply btn text-ink-700 hover:bg-paper-sunken;
   }
 
+  /* Inputs — squared, calm, signal focus. */
   .input {
-    @apply min-h-[44px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-ink
-           placeholder:text-slate-400 focus:border-brand focus:outline-none;
+    @apply min-h-[44px] w-full rounded-md border border-line-strong bg-paper-card px-3.5 py-2.5 text-base text-ink
+           placeholder:text-ink-400 focus:border-signal focus:outline-none;
   }
   .label {
     @apply mb-1.5 block text-sm font-semibold text-ink-700;
   }
 
-  .badge {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  /* Status/meta chips — squared, NOT pills; always paired with a dot + label. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded border px-2 py-[3px] text-2xs font-semibold uppercase tracking-wider;
+  }
+
+  /* Mono system-data style: IDs, timestamps, ward codes, hashes. */
+  .mono {
+    @apply font-mono text-ink-500;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Section eyebrow — small uppercase mono label, control-room signage. */
+  .eyebrow {
+    @apply font-mono text-2xs font-semibold uppercase tracking-[0.16em] text-ink-500;
+  }
+
+  /* Live indicator dot. */
+  .live-dot {
+    @apply h-2 w-2 rounded-full bg-status-resolved;
+    animation: live-dot 1.6s ease-in-out infinite;
   }
 }
 
-/* Leaflet map fills its container; keep it below app chrome. */
+/* ============================================================================
+   Leaflet — dark "tactical" map surface
+   ========================================================================== */
 .leaflet-container {
   width: 100%;
   height: 100%;
   z-index: 0;
-  font-family: var(--font-source-sans), sans-serif;
+  background: #0a0f1c;
+  font-family: var(--font-sans), sans-serif;
+}
+.leaflet-control-attribution {
+  background: rgba(10, 15, 28, 0.7) !important;
+  color: #6b7a96 !important;
+}
+.leaflet-control-attribution a { color: #8593ae !important; }
+.leaflet-bar a {
+  background: #0f1626 !important;
+  color: #c8d2e4 !important;
+  border-color: #1f2a40 !important;
+}
+.leaflet-bar a:hover { background: #1f2a40 !important; }
+
+/* Map status pins (divIcon). Color carries status; escalation pulses red. */
+.pin {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0 12px 1px var(--pin-glow, transparent);
+}
+.pin--lg { width: 20px; height: 20px; }
+.pin--escalated, .pin--breached {
+  animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin--escalated, .pin--breached { animation: none; box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.4); }
 }

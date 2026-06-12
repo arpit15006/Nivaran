@@ -8,6 +8,7 @@ import { runAccuracyEval } from '../services/accuracy.js';
 import { resolveJurisdiction } from '../engines/jurisdiction.js';
 import { decide } from '../engines/routing.js';
 import { scheduleEscalation } from '../engines/escalation.js';
+import { intakeComplaint } from '../services/pipeline.js';
 import { JURISDICTIONS, CATEGORIES, type Category } from '../config/domain.js';
 
 export const adminRouter = Router();
@@ -233,6 +234,53 @@ adminRouter.post(
         department: updated.department?.name ?? null,
         slaDeadline: updated.slaDeadline,
       },
+    });
+  }),
+);
+
+// ---- Demo controls: make the escalation agent act live (no waiting hours) ----
+
+// POST /admin/complaints/:id/breach-now — set the deadline to now and enqueue an
+// immediate escalation check, so the agent reasons + escalates on screen.
+adminRouter.post(
+  '/complaints/:id/breach-now',
+  asyncHandler(async (req, res) => {
+    const complaint = await prisma.complaint.findUnique({ where: { id: req.params.id } });
+    if (!complaint) throw notFound();
+    if (!complaint.departmentId) throw badRequest('Complaint is unrouted (in triage) — route it first.');
+    if (complaint.status === 'RESOLVED' || complaint.status === 'CLOSED') throw badRequest('Complaint is already closed.');
+
+    await prisma.complaint.update({ where: { id: complaint.id }, data: { slaDeadline: new Date() } });
+    await scheduleEscalation(complaint.id, complaint.escalationLevel, new Date());
+    res.json({ ok: true, message: 'Deadline forced; escalation agent will act within seconds.' });
+  }),
+);
+
+// POST /admin/demo/manhole — the canonical "money shot": file a critical
+// open-manhole-near-a-school report, route it, then immediately breach it so the
+// agent escalates (and, recognizing the safety signal, jumps the chain) live.
+adminRouter.post(
+  '/demo/manhole',
+  asyncHandler(async (req, res) => {
+    const complaint = await intakeComplaint({
+      reporterId: req.user!.sub,
+      rawText:
+        'URGENT: open manhole left uncovered right next to the school gate. Children walk past it every morning, someone could fall in. Please fix immediately.',
+      // Inside a seeded Indore ward so it routes municipally and pins on the map.
+      lat: 22.74,
+      lng: 75.88,
+    });
+
+    // Force an immediate breach so the agent acts on screen.
+    await prisma.complaint.update({ where: { id: complaint.id }, data: { slaDeadline: new Date() } });
+    await scheduleEscalation(complaint.id, complaint.escalationLevel, new Date());
+
+    res.status(201).json({
+      complaintId: complaint.id,
+      category: complaint.category,
+      severity: complaint.severity,
+      status: complaint.status,
+      message: 'Critical complaint filed and breached — watch it escalate on the map.',
     });
   }),
 );

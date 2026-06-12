@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
 import { Alert } from '@/components/ui';
@@ -36,11 +35,9 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
-        <Link href="/" className="mb-6 flex items-center justify-center gap-2">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-ink-900 text-white">
-            <ShieldCheck className="h-5 w-5" aria-hidden />
-          </span>
-          <span className="font-heading text-xl font-semibold text-ink-900">Nivaran</span>
+        <Link href="/" className="mb-6 flex items-center justify-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded bg-ink-900 font-heading text-base font-bold text-paper">N</span>
+          <span className="font-heading text-xl font-semibold tracking-tight text-ink-900">NIVARAN</span>
         </Link>
 
         <div className="card p-6 sm:p-8">
@@ -70,7 +67,7 @@ export default function RegisterPage() {
           </form>
 
           <p className="mt-4 text-center text-sm text-ink-500">
-            Already have an account? <Link href="/login" className="font-semibold text-brand-700 hover:underline">Sign in</Link>
+            Already have an account? <Link href="/login" className="font-semibold text-signal-700 hover:underline">Sign in</Link>
           </p>
         </div>
       </div>
