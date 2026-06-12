@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nivaran
+          POSTGRES_PASSWORD: nivaran
+          POSTGRES_DB: nivaran
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nivaran" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nivaran:nivaran@localhost:5432/nivaran?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci-access-secret-change-me
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-me
+      GROQ_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace backend
+      - name: Typecheck
+        run: npm run typecheck --workspace backend
+      - name: Unit tests (engines)
+        run: npm run test --workspace backend
+      - name: Apply migrations
+        run: npm run prisma:deploy --workspace backend
+      - name: Seed + routing-accuracy gate
+        run: |
+          npm run prisma:seed --workspace backend
+          npx --workspace backend tsx scripts/check-accuracy.ts
+
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_BASE: http://localhost:4000/api/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck --workspace frontend
+      - name: Build
+        run: npm run build --workspace frontend

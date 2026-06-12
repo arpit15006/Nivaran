@@ -1,0 +1,198 @@
+// Nivaran data model — see PRD §8.
+// The LLM only perceives; deterministic engines decide. Every routing/escalation
+// decision is reproducible and recorded in the hash-chained StatusEvent log.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CITIZEN
+  OFFICIAL
+  AUTHORITY
+  ADMIN
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Status {
+  NEW
+  TRIAGE
+  ROUTED
+  IN_PROGRESS
+  BREACHED
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum JurisdictionType {
+  MUNICIPAL
+  STATE_PWD
+  NATIONAL_HIGHWAY
+  PRIVATE
+  UTILITY
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String?
+  name         String?
+  role         Role     @default(CITIZEN)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  complaints   Complaint[]  @relation("reporter")
+  refreshTokens RefreshToken[]
+  createdAt    DateTime @default(now())
+
+  @@index([role])
+  @@index([departmentId])
+}
+
+// Hashed, revocable refresh tokens — supports session revocation (PRD §10).
+model RefreshToken {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Ward {
+  id         String      @id @default(cuid())
+  name       String
+  zone       String
+  geojson    Json        // Polygon / MultiPolygon geometry (GeoJSON)
+  complaints Complaint[]
+}
+
+model Department {
+  id           String           @id @default(cuid())
+  name         String
+  jurisdiction JurisdictionType
+  categories   String[]
+  escalation   EscalationStep[]
+  rules        RoutingRule[]
+  users        User[]
+  complaints   Complaint[]
+
+  @@unique([name, jurisdiction])
+}
+
+model EscalationStep {
+  id           String     @id @default(cuid())
+  department   Department @relation(fields: [departmentId], references: [id])
+  departmentId String
+  level        Int        // 1 = first escalation above the dept queue
+  authority    String     // human/role name of the escalation authority
+  contact      String?
+  slaHours     Int        @default(24) // time this level has before the next escalation
+
+  @@unique([departmentId, level])
+}
+
+model RoutingRule {
+  id           String           @id @default(cuid())
+  category     String
+  jurisdiction JurisdictionType
+  department   Department       @relation(fields: [departmentId], references: [id])
+  departmentId String
+  slaHours     Int
+  version      Int              @default(1)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+
+  @@unique([category, jurisdiction, version])
+  @@index([active])
+  @@index([category, jurisdiction])
+}
+
+model Complaint {
+  id                   String            @id @default(cuid())
+  reporter             User              @relation("reporter", fields: [reporterId], references: [id])
+  reporterId           String
+  rawText              String
+  photoKey             String?           // object-storage key (never a public URL)
+  voiceKey             String?
+  category             String
+  severity             Severity
+  lat                  Float
+  lng                  Float
+  ward                 Ward?             @relation(fields: [wardId], references: [id])
+  wardId               String?
+  jurisdiction         JurisdictionType?
+  department           Department?       @relation(fields: [departmentId], references: [id])
+  departmentId         String?
+  appliedRuleId        String?           // which RoutingRule version decided this
+  appliedRuleVersion   Int?
+  status               Status            @default(NEW)
+  slaDeadline          DateTime?
+  escalationLevel      Int               @default(0)
+  classifierConfidence Float?
+  classifierSource     String?           // "llm" | "fallback"
+  resolvedAt           DateTime?
+  events               StatusEvent[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([status])
+  @@index([departmentId, status])
+  @@index([slaDeadline])
+  @@index([wardId])
+  @@index([reporterId])
+}
+
+// Tamper-evident audit log. hash = SHA-256(prevHash + kind + actorId + detail + ts).
+model StatusEvent {
+  id          String    @id @default(cuid())
+  // Monotonic insertion order — the chain is ordered by `seq`, not by createdAt
+  // (multiple events can share a millisecond within one transaction).
+  seq         Int       @default(autoincrement())
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  complaintId String
+  kind        String    // CLASSIFIED|ROUTED|ESCALATED|RESOLVED|BREACHED|STATUS_CHANGE|VIEWED
+  actorId     String?
+  detail      Json
+  prevHash    String
+  hash        String
+  createdAt   DateTime  @default(now())
+
+  @@index([complaintId, seq])
+}
+
+// Idempotency keys for mutating endpoints (PRD §9).
+model IdempotencyKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  userId    String
+  response  Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Routing-accuracy evaluation set — gated in CI (PRD §16).
+model LabeledComplaint {
+  id             String @id @default(cuid())
+  rawText        String
+  lat            Float
+  lng            Float
+  trueCategory   String
+  trueDepartment String
+}

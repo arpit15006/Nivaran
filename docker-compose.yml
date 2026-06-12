@@ -1,0 +1,39 @@
+# Local dev infra for Nivaran: PostgreSQL + Redis.
+# Production uses managed Postgres (Neon/Render/Supabase) and Redis (Upstash/Render).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nivaran-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nivaran
+      POSTGRES_PASSWORD: nivaran
+      POSTGRES_DB: nivaran
+    ports:
+      - "5432:5432"
+    volumes:
+      - nivaran_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nivaran"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: nivaran-redis
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - nivaran_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nivaran_pg:
+  nivaran_redis:
