@@ -33,7 +33,7 @@ const LoginSchema = z.object({
 const refreshCookieOpts = {
   httpOnly: true,
   secure: isProd,
-  sameSite: 'lax' as const,
+  sameSite: isProd ? ('none' as const) : ('lax' as const),
   path: '/api/v1/auth',
   maxAge: ttlToMs(env.REFRESH_TOKEN_TTL),
 };

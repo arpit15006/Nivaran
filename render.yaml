@@ -1,0 +1,96 @@
+databases:
+  - name: nivaran-db
+    plan: free
+    ipAllowList: [] # Access restricted to internal services
+
+services:
+  # Managed Redis for BullMQ queues & rate limiting
+  - type: keyvalue
+    name: nivaran-redis
+    plan: free
+    ipAllowList: [] # Access restricted to internal services
+
+  # Web Service for Express API
+  - type: web
+    name: nivaran-api
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build --workspace backend
+    preDeployCommand: npm run db:deploy --workspace backend
+    startCommand: npm run start --workspace backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nivaran-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: nivaran-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false # User will input their Vercel frontend URL here
+      - key: GROQ_API_KEY
+        sync: false # User will input their Groq API key here (if applicable)
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: CLOUDINARY_URL
+        sync: false # User will input their Cloudinary URL here (if applicable)
+      - key: CLOUDINARY_FOLDER
+        value: nivaran
+      - key: MEDIA_RETENTION_DAYS
+        value: 30
+
+  # Background Worker for Escalation Engine
+  - type: worker
+    name: nivaran-worker
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build --workspace backend
+    startCommand: npm run start:worker --workspace backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nivaran-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: nivaran-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        fromService:
+          type: web
+          name: nivaran-api
+          envVarKey: JWT_ACCESS_SECRET
+      - key: JWT_REFRESH_SECRET
+        fromService:
+          type: web
+          name: nivaran-api
+          envVarKey: JWT_REFRESH_SECRET
+      - key: GROQ_API_KEY
+        fromService:
+          type: web
+          name: nivaran-api
+          envVarKey: GROQ_API_KEY
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: CLOUDINARY_URL
+        fromService:
+          type: web
+          name: nivaran-api
+          envVarKey: CLOUDINARY_URL
+      - key: CLOUDINARY_FOLDER
+        value: nivaran
+      - key: MEDIA_RETENTION_DAYS
+        value: 30
