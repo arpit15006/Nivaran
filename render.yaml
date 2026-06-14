@@ -15,7 +15,7 @@ services:
     name: nivaran-api
     env: node
     plan: free
-    buildCommand: npm install && npm run build --workspace backend
+    buildCommand: npm install --include=dev && npm run build --workspace backend
     preDeployCommand: npm run db:deploy --workspace backend
     startCommand: npm run start --workspace backend
     envVars:
@@ -54,7 +54,7 @@ services:
     name: nivaran-worker
     env: node
     plan: free
-    buildCommand: npm install && npm run build --workspace backend
+    buildCommand: npm install --include=dev && npm run build --workspace backend
     startCommand: npm run start:worker --workspace backend
     envVars:
       - key: NODE_ENV
