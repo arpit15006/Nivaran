@@ -136,9 +136,13 @@ export function ComplaintDetail({
 
               {/* Facts */}
               <section className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-2">
-                <Fact icon={<MapPin className="h-3.5 w-3.5" />} label="Location">
+                <Fact 
+                  icon={<MapPin className="h-3.5 w-3.5" />} 
+                  label="Location"
+                  onClick={() => window.open(`https://www.openstreetmap.org/?mlat=${complaint.lat}&mlon=${complaint.lng}#map=17/${complaint.lat}/${complaint.lng}`, '_blank')}
+                >
                   <span className="text-ink-900">{complaint.ward ?? 'Outside mapped wards'}</span>
-                  <span className="mt-0.5 block font-mono text-2xs text-ink-500">{complaint.lat.toFixed(5)}, {complaint.lng.toFixed(5)} · {complaint.jurisdiction}</span>
+                  <span className="mt-0.5 block font-mono text-2xs text-ink-500 hover:text-primary-600 transition-colors">{complaint.lat.toFixed(5)}, {complaint.lng.toFixed(5)} · {complaint.jurisdiction}</span>
                 </Fact>
                 <Fact icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Routed to">
                   {complaint.department ?? 'Human triage'}
@@ -252,9 +256,13 @@ function Eyebrow({ icon, children }: { icon?: React.ReactNode; children: React.R
   return <h3 className="eyebrow mb-2 flex items-center gap-1.5">{icon}{children}</h3>;
 }
 
-function Fact({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+function Fact({ icon, label, children, onClick }: { icon: React.ReactNode; label: string; children: React.ReactNode; onClick?: () => void }) {
   return (
-    <div className="bg-paper-card p-3.5">
+    <div 
+      className={`bg-paper-card p-3.5 ${onClick ? 'cursor-pointer hover:bg-paper-sunken/40 transition-colors' : ''}`}
+      onClick={onClick}
+      title={onClick ? 'Click to view exact location on OpenStreetMap' : undefined}
+    >
       <p className="eyebrow flex items-center gap-1.5">{icon}{label}</p>
       <div className="mt-1 text-sm font-semibold text-ink-900">{children}</div>
     </div>
